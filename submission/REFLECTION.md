@@ -6,9 +6,9 @@
 >
 > `make verify` sẽ fail nếu còn placeholder chưa điền. Đó là cố ý.
 
-**Họ Tên:** _<Họ Tên>_
-**Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Ngày submit:** _<YYYY-MM-DD>_
+**Họ Tên:** _Nguyễn Văn Sáng_
+**Cohort:** _A20-K4_
+**Ngày submit:** _2026-08-20_
 
 ---
 
@@ -16,23 +16,22 @@
 
 > Từ `make probe`. Paste output hoặc điền tay.
 
-- **OS:** _<macOS 14 / Windows 11 / Ubuntu 24.04 / ...>_
-- **CPU:** _<Apple M2 / Intel i7-12700H / AMD Ryzen 7 5800H>_
-- **Cores:** _<physical / logical>_
-- **CPU extensions:** _<AVX2 / AVX-512 / NEON / —>_
-- **RAM:** _<GB>_
-- **Accelerator:** _<NVIDIA RTX 4060 / Apple Metal / Vulkan / CPU only>_
-- **llama.cpp asset đã tải:** _<vd: llama-b10488-bin-macos-arm64.tar.gz>_
-- **Model đã dùng:** _<Gemma 4 E2B / Qwen3.5 0.8B>_ (`LAB_MODEL=`_<gemma4-e2b / qwen35-0.8b>_)
-- **Quantization:** _<primary>_ + _<compare>_ (từ `models/active.json`)
+- **OS:** Windows 11 (AMD64)
+- **CPU:** AMD Ryzen 7 7735HS with Radeon Graphics
+- **Cores:** 8 physical / 16 logical
+- **CPU extensions:** AVX2 + FMA (backend `ggml-cpu-haswell.dll` được nạp; không có AVX-512)
+- **RAM:** 15.2 GB
+- **Accelerator:** NVIDIA GeForce RTX 4060 Laptop GPU, 8188 MiB (CUDA, GPU offload ACTIVE) — Vulkan cũng sẵn có
+- **llama.cpp asset đã tải:** `llama-b10488-bin-win-cuda-12.4-x64.zip` (+ `cudart-llama-bin-win-cuda-12.4-x64.zip`)
+- **Model đã dùng:** Gemma 4 E2B (`LAB_MODEL=gemma4-e2b`)
+- **Quantization:** UD-Q4_K_XL, 2.97 GB (primary) + UD-Q2_K_XL, 2.24 GB (compare)
 
-**Chạy ở đâu:** _<laptop của tôi / Colab / Kaggle>_
-_(Nếu dùng cloud fallback: nói rõ vì sao — RAM < 8 GB, setup fail, v.v. Không mất điểm.)_
+**Chạy ở đâu:** Laptop của tôi
 
-**Setup story** (≤ 80 chữ): điều gì cần thay đổi để lab chạy trên máy bạn? Có bước
-nào fail rồi phải workaround không?
-
-_Answer here._
+**Setup story** (≤ 80 chữ): `lab.ps1` gốc lưu UTF-8 không có BOM; Windows PowerShell 5.1
+đọc file theo ANSI codepage hệ thống khi thiếu BOM, làm hỏng ký tự em-dash trong chuỗi
+và báo lỗi parse trước khi chạy được lệnh nào. Thêm BOM UTF-8 vào đầu file là fix. Sau đó
+`setup` chạy suôn, không cần workaround nào khác.
 
 ---
 
@@ -42,14 +41,12 @@ _Answer here._
 
 | Quantization | Size (GB) | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode (tok/s) |
 |---|--:|--:|--:|--:|--:|--:|
-| UD-Q4_K_XL | | | | | | |
-| UD-Q2_K_XL | | | | | | |
+| UD-Q4_K_XL | 2.97 | 6208 | 525 / 978 | 10.6 / 11.6 | 1178 / 1649 / 1649 | 94.4 |
+| UD-Q2_K_XL | 2.24 | 6168 | 502 / 894 | 9.4 / 10.5 | 1086 / 1483 / 1483 | 106.7 |
 
-**Quan sát** (≤ 60 chữ): 2-bit nhanh hơn bao nhiêu, và **có đáng không**? Bạn đã thử
-hỏi cùng một câu trên cả hai (`make serve` vs `.venv/bin/python labs/02-serve/serve.py --compare`)
-chưa? Chất lượng khác nhau thế nào?
-
-_Answer here._
+**Quan sát** (≤ 60 chữ): Q2_K_XL nhanh hơn 1.13x, nhẹ hơn 0.73 GB (~25%). Đã hỏi cùng
+2 câu (giải thích khái niệm + toán suy luận) trên cả hai server (`--port 8080` vs
+`--compare --port 8090`). Không thấy khác biệt chất lượng rõ rệt với prompt ngắn/trung bình → đáng dùng Q2_K_XL cho lab này.
 
 ---
 
@@ -59,22 +56,24 @@ _Answer here._
 
 | Users | RPS | P50 (ms) | P95 (ms) | P99 (ms) | Eff. concurrency | Failures |
 |--:|--:|--:|--:|--:|--:|--:|
-| 10 | | | | | | |
-| 50 | | | | | | |
+| 10 | 3.82 | 1600 | 2800 | 4400 | 6.6 | 0.0% |
+| 50 | 3.65 | 13000 | 14000 | 14000 | 42.5 | 0.0% |
 
-- **Offered load tăng 5×, throughput thực tăng:** _<X.XX>×_
-- **P95 tăng:** _<X.XX>×_
-- **Effective concurrency ở 50 users:** _<số>_ so với `--parallel` = _<số>_ slots
+- **Offered load tăng 5×, throughput thực tăng:** 0.96×
+- **P95 tăng:** 5.00×
+- **Effective concurrency ở 50 users:** 42.5 so với `--parallel` = 4 slots
 
 **Peak `llamacpp:n_busy_slots_per_decode`** (từ `make metrics` khi `make load-50` đang
-chạy): _<số>_ / _<slots>_ slots
+chạy): 3.98 / 4 slots
 
-**Saturation reading** (≤ 80 chữ): server của bạn bão hoà ở đâu, và **bằng chứng nào**
-thuyết phục bạn? Nếu P95 tăng nhanh hơn RPS thì phần latency thêm đó là queue time hay
-compute time — bạn biết bằng cách nào? Nếu bạn phải nâng goodput@SLO, bạn sẽ đổi knob
-nào **trước**, và vì sao knob đó?
-
-_Answer here._
+**Saturation reading** (≤ 80 chữ): Server bão hoà ở hoặc dưới 10 users. Bằng chứng:
+RPS gần như đứng yên (0.96×) dù tải tăng 5×; `n_busy_slots_per_decode` đỉnh 3.98/4 (99%)
+xác nhận decode engine full; effective concurrency (6.6 ở 10 users, đã > 4 slots) cho
+thấy hàng đợi hình thành từ sớm. Latency thêm là **queue time** (chờ slot), không phải
+compute time (TPOT/token không đổi theo tải, §2). Sẽ đổi `--parallel` (4→8) trước, vì
+đúng cơ chế: batching amortize chi phí đọc VRAM qua nhiều sequence/step, và GPU còn dư
+~7 GB VRAM để tăng slot. Đổi `-t` vô ích — §5 đã chứng minh threads không phải bottleneck
+khi `ngl=99`.
 
 ---
 
@@ -84,23 +83,24 @@ _Answer here._
 
 | Day | Piece | Real hay stub? |
 |---|---|---|
-| N16 Cloud/IaC | | |
-| N17 Data pipeline | | |
-| N18 Lakehouse | | |
-| N19 Vector + features | | |
-| N20 Serving | `llama-server` | real |
+| N16 Cloud/IaC | — | Stub ("localhost only") |
+| N17 Data pipeline | `TOY_DOCS` | Stub (in-memory list) |
+| N18 Lakehouse | `TOY_DOCS` | Stub (vẫn là dict, không có Delta/Iceberg) |
+| N19 Vector + features | keyword overlap | Stub (chưa nối vector index thật) |
+| N20 Serving | `llama-server` | Real |
 
 **Latency split** (mean của 3 query, từ output của `pipeline.py`):
 
-- embed: _<ms>_
-- retrieve: _<ms>_
-- llm: _<ms>_
-- **stage chiếm nhiều nhất:** _<stage>_ (_<%>_ của total)
+- embed: 0.0 ms
+- retrieve: 0.3 ms
+- llm: 3023.4 ms
+- **stage chiếm nhiều nhất:** llm (100% của total)
 
-**Reflection** (≤ 60 chữ): bottleneck ở đâu? Có khớp với kỳ vọng của bạn không? Nếu
-phải giảm latency của pipeline này 2×, bạn sẽ tấn công vào đâu?
-
-_Answer here._
+**Reflection** (≤ 60 chữ): `llm` chiếm gần 100% — đúng kỳ vọng vì N17-N19 đang stub nên
+embed/retrieve gần như miễn phí. Điều bất ngờ: bên trong `llm`, wall-time client đo được
+(~3023ms) lớn hơn nhiều tổng prefill+decode server tự báo (~470-670ms) — overhead ngoài
+model compute. Muốn giảm 2× latency, việc đầu tiên là tìm và cắt khoảng overhead đó
+(client `httpx.post` không giữ keep-alive), chứ không phải đổi quantization trước.
 
 ---
 
@@ -110,22 +110,19 @@ _Answer here._
 > một before/after thật (`benchmarks/01-tuning-tg128.md`). Đổi quantization,
 > `LAB_N_CTX`, hay `--parallel` rồi đo lại cũng được.
 
-**Change:** _<vd: hạ -t từ 16 xuống 8; vd: đổi sang UD-Q2_K_XL; vd: --parallel 4 → 8>_
+**Change:** `LAB_N_THREADS` sweep (`make tune`): `-t 1` → `-t 16` (best trong sweep)
 
 ```
-before:  <số + đơn vị>
-after:   <số + đơn vị>
-speedup: <X.Y>×
+before:  107.5 tok/s  (-t 1)
+after:   113.1 tok/s  (-t 16)
+speedup: 1.05×
 ```
 
 **Tại sao nó work** (1–2 đoạn — đây là phần grader đọc kỹ nhất):
 
-_Giải thích như đang nói với bạn ngồi cạnh. Bám vào **cơ chế**, không phải "vibes":
-memory bandwidth? vector width? cache residency? scheduling? queueing? Nếu kết quả
-**khác** với kỳ vọng từ deck — nói rõ, và giải thích vì sao. Grader thưởng điểm cho
-lập luận đúng về một kết quả bất ngờ, hơn là một con số đẹp không được giải thích._
+Điều đáng nói không phải con số 1.05× — mà là nó nhỏ hơn nhiều so với kỳ vọng từ deck, và lý do lộ ra ngay từ config: `ngl=99` nghĩa là gần như toàn bộ layer của Gemma 4 E2B được offload lên GPU. Phần compute nặng nhất của decode là nhân ma trận mỗi token sinh ra lại chạy trên CUDA và bị chặn bởi băng thông đọc trọng số từ VRAM, không phải bởi số CPU thread. `-t` trong benchmark này chỉ quyết định bao nhiêu thread CPU lo việc điều phối (dispatch kernel, sampling, quản lý KV cache), nên sweep từ 1 → 32 thread gần không thay đổi (95%–100%), không có knee rõ ở physical core (8) như mô tả cho CPU-only decode, và `-t 32` cũng chỉ giảm nhẹ 0.7% chứ không sập vì scheduling overhead.
 
-_Answer here._
+Nói cách khác: trên máy có GPU offload đầy đủ, bottleneck của TPOT đã chuyển từ CPU threading sang GPU memory bandwidth trước khi thread count kịp gây ảnh hưởng đáng kể. Muốn có speedup lớn hơn ở TPOT trên máy này, không phải `-t` mà là những tác động lên lượng byte phải đọc từ VRAM mỗi token — ví dụ quantization thấp hơn hoặc `--cache-type-k/v` cho KV cache nhỏ hơn.
 
 ---
 
